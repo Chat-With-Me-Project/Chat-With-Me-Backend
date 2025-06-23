@@ -37,6 +37,8 @@ export async function handleChatRequest(request: Request, env: Record<string, st
   console.log("the messages in the payload is")
   console.log(messages)
   const fullMessages = ensureSystemMessage(messages);
+  console.log(fullMessages);
+
   const reply = await queryOpenRouter(fullMessages, apiKey);
 
   return new Response(reply, {
@@ -48,8 +50,23 @@ export async function handleChatRequest(request: Request, env: Record<string, st
 // sanitize the text
 function ensureSystemMessage(messages: ChatMessage[]): ChatMessage[] {
   const hasSystem = messages.some((msg) => msg.role === "system");
-  return hasSystem ? messages : [{ role: "system", content: startingContext }, ...messages];
+
+  const mergedContext = `
+${startingContext}
+
+---
+You also receive a list of past messages in the messages array of the payload — representing a conversation between the user and you (the assistant).
+Continue the conversation naturally, as if you are aware of the previous context.
+`.trim();
+
+  const fullSystemMessage: ChatMessage = {
+    role: "system",
+    content: mergedContext,
+  };
+
+  return hasSystem ? messages : [fullSystemMessage, ...messages];
 }
+
 
 async function queryOpenRouter(messages: ChatMessage[], apiKey: string): Promise<string> {
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
